@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Gateball - Fase de Classificação</title>
+	<style>
+		/* Light theme (default — easier on older eyes) */
+		:root, :root[data-theme="light"] {
+			--bg: #f8fafc;
+			--panel: #ffffff;
+			--panel-2: #e2e8f0;
+			--border: #cbd5e1;
+			--text: #0f172a;
+			--muted: #475569;
+			--accent: #0284c7;
+			--accent-hover: #0369a1;
+			--win: #15803d;
+			--loss: #b91c1c;
+			--danger: #dc2626;
+			--danger-hover: #b91c1c;
+			--row-alt: #f1f5f9;
+		}
+
+		/* Dark theme */
+		html[data-theme="dark"] {
+			--bg: #0f172a;
+			--panel: #1e293b;
+			--panel-2: #334155;
+			--border: #475569;
+			--text: #f1f5f9;
+			--muted: #94a3b8;
+			--accent: #38bdf8;
+			--accent-hover: #0ea5e9;
+			--win: #4ade80;
+			--loss: #f87171;
+			--danger: #ef4444;
+			--danger-hover: #dc2626;
+			--row-alt: #273549;
+		}
+
+		/* High-contrast theme (maximum readability on the big screen) */
+		html[data-theme="high-contrast"] {
+			--bg: #ffffff;
+			--panel: #ffffff;
+			--panel-2: #000000;
+			--border: #000000;
+			--text: #000000;
+			--muted: #1f2937;
+			--accent: #1d4ed8;
+			--accent-hover: #1e3a8a;
+			--win: #14532d;
+			--loss: #7f1d1d;
+			--danger: #991b1b;
+			--danger-hover: #7f1d1d;
+			--row-alt: #f3f4f6;
+		}
+		html[data-theme="high-contrast"] th { color: #ffffff; }
+		html[data-theme="high-contrast"] .btn { color: #ffffff; }
+		html[data-theme="high-contrast"] .btn-primary { color: #ffffff; }
+		html[data-theme="high-contrast"] .theme-select { color: #ffffff; }
+		html[data-theme="high-contrast"] .theme-select option { color: #000000; background: #ffffff; }
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			color: var(--text);
+			font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			font-size: 17px;
+		}
+		html { background: var(--bg); }
+		body {
+			background: var(--bg);
+			min-height: 100vh;
+		}
+
+		.theme-select {
+			background: var(--panel-2);
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.5rem 0.75rem;
+			font-size: 0.9rem;
+			cursor: pointer;
+		}
+
+		.app {
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 1.5rem;
+		}
+
+		header {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 1rem;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 1.5rem;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 2rem;
+			font-weight: 600;
+		}
+
+		.tournament-name {
+			background: transparent;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.5rem 0.75rem;
+			font-size: 1rem;
+			min-width: 220px;
+		}
+
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+		}
+
+		.btn {
+			background: var(--panel-2);
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.5rem 0.9rem;
+			font-size: 0.9rem;
+			cursor: pointer;
+			font-weight: 500;
+		}
+		.btn:hover { background: var(--accent); border-color: var(--accent); }
+		.btn-primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+		.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
+		.btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+		.btn-danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+
+		section {
+			background: var(--panel);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 1.25rem;
+			margin-bottom: 1.25rem;
+		}
+
+		section h2 {
+			margin: 0 0 1rem 0;
+			font-size: 1.1rem;
+			font-weight: 600;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+		}
+
+		form.match-form {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 0.75rem;
+		}
+		form.match-form input {
+			background: var(--bg);
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.55rem 0.75rem;
+			font-size: 1rem;
+		}
+		form.match-form input[type="text"] { width: 200px; }
+		form.match-form input[type="number"] { width: 70px; text-align: center; font-weight: 600; }
+		form.match-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+		.vs-divider {
+			font-weight: 700;
+			color: var(--muted);
+			padding: 0 0.25rem;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 0.95rem;
+		}
+		th, td {
+			padding: 0.65rem 0.75rem;
+			text-align: center;
+			border-bottom: 1px solid var(--border);
+		}
+		th {
+			background: var(--panel-2);
+			color: var(--muted);
+			text-transform: uppercase;
+			font-size: 0.75rem;
+			letter-spacing: 0.05em;
+			font-weight: 600;
+		}
+		tbody tr:nth-child(even) { background: var(--row-alt); }
+		td.team { font-weight: 500; }
+		td.winner {
+			color: var(--win);
+			font-weight: 700;
+			background: color-mix(in srgb, var(--win) 12%, transparent);
+		}
+		td.loser { color: var(--text); opacity: 0.7; }
+		td.draw { color: var(--muted); font-weight: 600; font-style: italic; }
+		.trophy { margin-right: 0.4rem; }
+		.match-score {
+			font-size: 1.25rem;
+			font-weight: 800;
+			letter-spacing: 0.05em;
+		}
+		.match-score .sep { color: var(--muted); font-weight: 500; margin: 0 0.5rem; }
+		.match-score .w { color: var(--win); }
+		.match-score .l { color: var(--text); opacity: 0.7; }
+		td.pos { font-weight: 700; color: var(--accent); }
+
+		.empty {
+			text-align: center;
+			color: var(--muted);
+			padding: 1.5rem;
+			font-style: italic;
+		}
+
+		.delete-btn {
+			background: transparent;
+			color: var(--loss);
+			border: 1px solid var(--loss);
+			border-radius: 4px;
+			padding: 0.25rem 0.6rem;
+			cursor: pointer;
+			font-size: 0.85rem;
+		}
+		.delete-btn:hover { background: var(--loss); color: white; }
+
+		/* Big screen / fullscreen presentation mode */
+		body.big-screen .app { max-width: none; padding: 2rem 3rem; }
+		body.big-screen header,
+		body.big-screen section.input-section,
+		body.big-screen section.matches-section { display: none; }
+		body.big-screen section.classification-section {
+			background: var(--bg);
+			border: none;
+			padding: 0;
+		}
+		body.big-screen section.classification-section h2 {
+			font-size: 3rem;
+			text-align: center;
+			color: var(--accent);
+			margin-bottom: 2rem;
+		}
+		body.big-screen table { font-size: 2rem; }
+		body.big-screen th { font-size: 1.3rem; padding: 1.25rem 1rem; }
+		body.big-screen td { padding: 1.25rem 1rem; }
+
+		.hidden { display: none !important; }
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header>
+			<div>
+				<h1>Fase de Classificação</h1>
+				<input id="tournamentName" class="tournament-name" type="text" placeholder="Nome do torneio" autocomplete="off">
+			</div>
+			<div class="toolbar">
+				<select class="theme-select" id="themeSelect" title="Tema">
+					<option value="light">Tema Claro</option>
+					<option value="dark">Tema Escuro</option>
+					<option value="high-contrast">Alto Contraste</option>
+				</select>
+				<button class="btn" id="btnFullscreen">Tela Cheia</button>
+				<button class="btn" id="btnExport">Salvar Backup</button>
+				<button class="btn" id="btnImport">Carregar Backup</button>
+				<button class="btn btn-danger" id="btnNew">Novo Torneio</button>
+				<input id="importFile" type="file" accept="application/json" class="hidden">
+			</div>
+		</header>
+
+		<section class="input-section">
+			<h2>Adicionar Partida</h2>
+			<form class="match-form" id="matchForm">
+				<input id="t1name" type="text" placeholder="Time 1" autocomplete="off" required>
+				<input id="t1score" type="number" min="0" value="0" required>
+				<span class="vs-divider">vs</span>
+				<input id="t2score" type="number" min="0" value="0" required>
+				<input id="t2name" type="text" placeholder="Time 2" autocomplete="off" required>
+				<button class="btn btn-primary" type="submit">Adicionar</button>
+			</form>
+		</section>
+
+		<section class="matches-section">
+			<h2>Partidas</h2>
+			<table id="matchesTable">
+				<thead>
+					<tr>
+						<th>Equipe</th>
+						<th>Placar</th>
+						<th>Equipe</th>
+						<th>Ações</th>
+					</tr>
+				</thead>
+				<tbody id="matchesBody"></tbody>
+			</table>
+			<div id="matchesEmpty" class="empty">Nenhuma partida registrada.</div>
+		</section>
+
+		<section class="classification-section">
+			<h2>Classificação</h2>
+			<table id="classificationTable">
+				<thead>
+					<tr>
+						<th>Posição</th>
+						<th>Equipe</th>
+						<th>Vitórias</th>
+						<th>Derrotas</th>
+						<th>Empates</th>
+						<th>Pontos Feitos</th>
+						<th>Pontos Sofridos</th>
+						<th>Saldo</th>
+					</tr>
+				</thead>
+				<tbody id="classificationBody"></tbody>
+			</table>
+			<div id="classificationEmpty" class="empty">Adicione partidas para ver a classificação.</div>
+		</section>
+	</div>
+
+	<script>
+		'use strict';
+
+		const STORAGE_KEY = 'gateball-tracker-v2';
+		const THEME_KEY = 'gateball-tracker-theme';
+
+		// ---------- Theme ----------
+		function applyTheme(theme) {
+			const valid = ['light', 'dark', 'high-contrast'];
+			const chosen = valid.includes(theme) ? theme : 'light';
+			document.documentElement.setAttribute('data-theme', chosen);
+			try { localStorage.setItem(THEME_KEY, chosen); } catch (_) {}
+			const sel = document.getElementById('themeSelect');
+			if (sel) sel.value = chosen;
+		}
+
+		function loadTheme() {
+			let saved = 'light';
+			try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch (_) {}
+			applyTheme(saved);
+		}
+
+		/** @type {{ tournamentName: string, matches: Array<{team1:string,team1Score:number,team2:string,team2Score:number}> }} */
+		let state = { tournamentName: '', matches: [] };
+
+		// ---------- Persistence ----------
+		function loadState() {
+			try {
+				const raw = localStorage.getItem(STORAGE_KEY);
+				if (!raw) return;
+				const parsed = JSON.parse(raw);
+				if (parsed && Array.isArray(parsed.matches)) {
+					state = {
+						tournamentName: typeof parsed.tournamentName === 'string' ? parsed.tournamentName : '',
+						matches: parsed.matches.filter(isValidMatch),
+					};
+				}
+			} catch (err) {
+				console.error('Falha ao carregar estado:', err);
+			}
+		}
+
+		function saveState() {
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+			} catch (err) {
+				console.error('Falha ao salvar estado:', err);
+			}
+		}
+
+		function isValidMatch(m) {
+			return m
+				&& typeof m.team1 === 'string' && m.team1.trim() !== ''
+				&& typeof m.team2 === 'string' && m.team2.trim() !== ''
+				&& Number.isFinite(m.team1Score)
+				&& Number.isFinite(m.team2Score);
+		}
+
+		// ---------- Mutations ----------
+		function addMatch(match) {
+			state.matches.push(match);
+			saveState();
+			render();
+		}
+
+		function deleteMatch(index) {
+			state.matches.splice(index, 1);
+			saveState();
+			render();
+		}
+
+		function newTournament() {
+			if (state.matches.length > 0 && !confirm('Isso vai apagar o torneio atual. Continuar?')) return;
+			state = { tournamentName: '', matches: [] };
+			saveState();
+			render();
+		}
+
+		function setTournamentName(name) {
+			state.tournamentName = name;
+			saveState();
+		}
+
+		// ---------- Classification (ported from TournamentService.java) ----------
+		function computeClassification(matches) {
+			const results = new Map();
+			const ensure = (name) => {
+				if (!results.has(name)) {
+					results.set(name, {
+						teamName: name,
+						victoryCounter: 0,
+						defeatCounter: 0,
+						drawCounter: 0,
+						pointsMade: 0,
+						pointsSuffered: 0,
+					});
+				}
+				return results.get(name);
+			};
+
+			for (const m of matches) {
+				const t1 = ensure(m.team1);
+				const t2 = ensure(m.team2);
+				t1.pointsMade += m.team1Score;
+				t1.pointsSuffered += m.team2Score;
+				t2.pointsMade += m.team2Score;
+				t2.pointsSuffered += m.team1Score;
+
+				if (m.team1Score > m.team2Score) {
+					t1.victoryCounter++;
+					t2.defeatCounter++;
+				} else if (m.team2Score > m.team1Score) {
+					t2.victoryCounter++;
+					t1.defeatCounter++;
+				} else {
+					t1.drawCounter++;
+					t2.drawCounter++;
+				}
+			}
+
+			const rows = Array.from(results.values()).map((r) => ({
+				...r,
+				pointsBalance: r.pointsMade - r.pointsSuffered,
+			}));
+
+			// Sort: victories desc, then points balance desc (matches v1 backend)
+			rows.sort((a, b) => {
+				if (b.victoryCounter !== a.victoryCounter) return b.victoryCounter - a.victoryCounter;
+				return b.pointsBalance - a.pointsBalance;
+			});
+
+			return rows;
+		}
+
+		// ---------- Rendering ----------
+		const els = {
+			tournamentName: document.getElementById('tournamentName'),
+			matchesBody: document.getElementById('matchesBody'),
+			matchesEmpty: document.getElementById('matchesEmpty'),
+			matchesTable: document.getElementById('matchesTable'),
+			classificationBody: document.getElementById('classificationBody'),
+			classificationEmpty: document.getElementById('classificationEmpty'),
+			classificationTable: document.getElementById('classificationTable'),
+		};
+
+		function render() {
+			if (document.activeElement !== els.tournamentName) {
+				els.tournamentName.value = state.tournamentName;
+			}
+
+			// Matches table
+			els.matchesBody.innerHTML = '';
+			if (state.matches.length === 0) {
+				els.matchesTable.classList.add('hidden');
+				els.matchesEmpty.classList.remove('hidden');
+			} else {
+				els.matchesTable.classList.remove('hidden');
+				els.matchesEmpty.classList.add('hidden');
+				state.matches.forEach((m, i) => {
+					const t1Win = m.team1Score > m.team2Score;
+					const t2Win = m.team2Score > m.team1Score;
+					const draw = !t1Win && !t2Win;
+					const t1Cls = draw ? 'draw' : (t1Win ? 'team winner' : 'team loser');
+					const t2Cls = draw ? 'draw' : (t2Win ? 'team winner' : 'team loser');
+					const t1Trophy = t1Win ? '<span class="trophy">🏆</span>' : '';
+					const t2Trophy = t2Win ? '<span class="trophy">🏆</span>' : '';
+					const s1Cls = draw ? '' : (t1Win ? 'w' : 'l');
+					const s2Cls = draw ? '' : (t2Win ? 'w' : 'l');
+					const sep = draw ? '=' : '×';
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td class="${t1Cls}">${t1Trophy}${escapeHtml(m.team1)}</td>
+						<td class="match-score">
+							<span class="${s1Cls}">${m.team1Score}</span><span class="sep">${sep}</span><span class="${s2Cls}">${m.team2Score}</span>
+						</td>
+						<td class="${t2Cls}">${escapeHtml(m.team2)}${t2Win ? ' <span class="trophy">🏆</span>' : ''}</td>
+						<td><button class="delete-btn" data-index="${i}">Excluir</button></td>
+					`;
+					els.matchesBody.appendChild(tr);
+				});
+			}
+
+			// Classification table
+			const rows = computeClassification(state.matches);
+			els.classificationBody.innerHTML = '';
+			if (rows.length === 0) {
+				els.classificationTable.classList.add('hidden');
+				els.classificationEmpty.classList.remove('hidden');
+			} else {
+				els.classificationTable.classList.remove('hidden');
+				els.classificationEmpty.classList.add('hidden');
+				rows.forEach((r, i) => {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td class="pos">${i + 1}º</td>
+						<td class="team">${escapeHtml(r.teamName)}</td>
+						<td>${r.victoryCounter}</td>
+						<td>${r.defeatCounter}</td>
+						<td>${r.drawCounter}</td>
+						<td>${r.pointsMade}</td>
+						<td>${r.pointsSuffered}</td>
+						<td>${r.pointsBalance}</td>
+					`;
+					els.classificationBody.appendChild(tr);
+				});
+			}
+		}
+
+		function escapeHtml(s) {
+			return String(s).replace(/[&<>"']/g, (c) => ({
+				'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+			}[c]));
+		}
+
+		// ---------- Export / Import ----------
+		function exportJson() {
+			const data = JSON.stringify(state, null, 2);
+			const blob = new Blob([data], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			const safeName = (state.tournamentName || 'torneio').replace(/[^a-z0-9-_]+/gi, '_');
+			const date = new Date().toISOString().slice(0, 10);
+			a.href = url;
+			a.download = `${safeName}-${date}.json`;
+			a.click();
+			URL.revokeObjectURL(url);
+		}
+
+		function importJson(file) {
+			const reader = new FileReader();
+			reader.onload = () => {
+				try {
+					const parsed = JSON.parse(String(reader.result));
+					if (!parsed || !Array.isArray(parsed.matches)) throw new Error('Formato inválido');
+					const matches = parsed.matches.filter(isValidMatch);
+					state = {
+						tournamentName: typeof parsed.tournamentName === 'string' ? parsed.tournamentName : '',
+						matches,
+					};
+					saveState();
+					render();
+				} catch (err) {
+					alert('Arquivo inválido: ' + err.message);
+				}
+			};
+			reader.readAsText(file);
+		}
+
+		// ---------- Event wiring ----------
+		document.getElementById('matchForm').addEventListener('submit', (e) => {
+			e.preventDefault();
+			const t1 = document.getElementById('t1name').value.trim();
+			const t2 = document.getElementById('t2name').value.trim();
+			const s1 = Number(document.getElementById('t1score').value);
+			const s2 = Number(document.getElementById('t2score').value);
+			if (!t1 || !t2) return;
+			if (!Number.isFinite(s1) || !Number.isFinite(s2)) return;
+			addMatch({ team1: t1, team1Score: s1, team2: t2, team2Score: s2 });
+			document.getElementById('t1name').value = '';
+			document.getElementById('t2name').value = '';
+			document.getElementById('t1score').value = '0';
+			document.getElementById('t2score').value = '0';
+			document.getElementById('t1name').focus();
+		});
+
+		els.matchesBody.addEventListener('click', (e) => {
+			const btn = e.target.closest('.delete-btn');
+			if (!btn) return;
+			deleteMatch(Number(btn.dataset.index));
+		});
+
+		els.tournamentName.addEventListener('input', (e) => setTournamentName(e.target.value));
+
+		document.getElementById('btnNew').addEventListener('click', newTournament);
+		document.getElementById('btnExport').addEventListener('click', exportJson);
+		document.getElementById('btnImport').addEventListener('click', () => document.getElementById('importFile').click());
+		document.getElementById('importFile').addEventListener('change', (e) => {
+			const file = e.target.files && e.target.files[0];
+			if (file) importJson(file);
+			e.target.value = '';
+		});
+
+		document.getElementById('btnFullscreen').addEventListener('click', async () => {
+			document.body.classList.toggle('big-screen');
+			try {
+				if (document.fullscreenElement) {
+					await document.exitFullscreen();
+				} else {
+					await document.documentElement.requestFullscreen();
+				}
+			} catch (_) { /* ignore */ }
+		});
+
+		document.addEventListener('fullscreenchange', () => {
+			if (!document.fullscreenElement) document.body.classList.remove('big-screen');
+		});
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && document.body.classList.contains('big-screen')) {
+				document.body.classList.remove('big-screen');
+			}
+		});
+
+		document.getElementById('themeSelect').addEventListener('change', (e) => applyTheme(e.target.value));
+
+		// ---------- Init ----------
+		loadTheme();
+		loadState();
+		render();
+	</script>
+</body>
+</html>

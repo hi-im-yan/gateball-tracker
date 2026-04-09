@@ -1,0 +1,11 @@
+{
+  "tournamentName": "Torneio Exemplo",
+  "matches": [
+    { "team1": "Águias",    "team1Score": 15, "team2": "Leões",    "team2Score": 10 },
+    { "team1": "Tigres",    "team1Score":  8, "team2": "Falcões",  "team2Score": 12 },
+    { "team1": "Águias",    "team1Score": 11, "team2": "Tigres",   "team2Score": 11 },
+    { "team1": "Leões",     "team1Score":  9, "team2": "Falcões",  "team2Score":  7 },
+    { "team1": "Águias",    "team1Score": 14, "team2": "Falcões",  "team2Score":  6 },
+    { "team1": "Leões",     "team1Score": 10, "team2": "Tigres",   "team2Score": 13 }
+  ]
+}

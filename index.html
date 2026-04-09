@@ -214,8 +214,8 @@
 			letter-spacing: 0.05em;
 		}
 		.match-score .sep { color: var(--muted); font-weight: 500; margin: 0 0.5rem; }
-		.match-score .w { color: var(--win); }
-		.match-score .l { color: var(--text); opacity: 0.7; }
+		.match-score .winning-score { color: var(--win); }
+		.match-score .losing-score { color: var(--text); opacity: 0.7; }
 		td.pos { font-weight: 700; color: var(--accent); }
 
 		.empty {
@@ -332,36 +332,66 @@
 	<script>
 		'use strict';
 
-		const STORAGE_KEY = 'gateball-tracker-v2';
-		const THEME_KEY = 'gateball-tracker-theme';
+		/*
+		 * Gateball Tracker — offline tournament scoreboard.
+		 *
+		 * Domain:
+		 *   A "match" is a single game between two teams, each with a score.
+		 *   A "tournament" is a named collection of matches.
+		 *   The "standings" (classification / ranking) are derived from the
+		 *   matches: for each team, count wins/losses/draws and total points
+		 *   scored vs. points conceded.
+		 *
+		 * Data shapes:
+		 *   Match = {
+		 *     team1: string, team1Score: number,
+		 *     team2: string, team2Score: number,
+		 *   }
+		 *   TournamentState = { tournamentName: string, matches: Match[] }
+		 *   TeamStanding = {
+		 *     teamName: string,
+		 *     wins: number, losses: number, draws: number,
+		 *     pointsFor: number,        // total points this team scored
+		 *     pointsAgainst: number,    // total points conceded by this team
+		 *     pointBalance: number,     // pointsFor - pointsAgainst
+		 *   }
+		 *
+		 * Persistence:
+		 *   - Current tournament is auto-saved to localStorage on every change.
+		 *   - User can Export/Import the same shape as a JSON backup file.
+		 */
+
+		const TOURNAMENT_STORAGE_KEY = 'gateball-tracker-v2';
+		const THEME_STORAGE_KEY = 'gateball-tracker-theme';
+		const AVAILABLE_THEMES = ['light', 'dark', 'high-contrast'];
+		const DEFAULT_THEME = 'light';
 
 		// ---------- Theme ----------
 		function applyTheme(theme) {
-			const valid = ['light', 'dark', 'high-contrast'];
-			const chosen = valid.includes(theme) ? theme : 'light';
-			document.documentElement.setAttribute('data-theme', chosen);
-			try { localStorage.setItem(THEME_KEY, chosen); } catch (_) {}
-			const sel = document.getElementById('themeSelect');
-			if (sel) sel.value = chosen;
+			const chosenTheme = AVAILABLE_THEMES.includes(theme) ? theme : DEFAULT_THEME;
+			document.documentElement.setAttribute('data-theme', chosenTheme);
+			try { localStorage.setItem(THEME_STORAGE_KEY, chosenTheme); } catch (_) {}
+			const themeSelect = document.getElementById('themeSelect');
+			if (themeSelect) themeSelect.value = chosenTheme;
 		}
 
 		function loadTheme() {
-			let saved = 'light';
-			try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch (_) {}
-			applyTheme(saved);
+			let savedTheme = DEFAULT_THEME;
+			try { savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME; } catch (_) {}
+			applyTheme(savedTheme);
 		}
 
 		/** @type {{ tournamentName: string, matches: Array<{team1:string,team1Score:number,team2:string,team2Score:number}> }} */
-		let state = { tournamentName: '', matches: [] };
+		let tournamentState = { tournamentName: '', matches: [] };
 
 		// ---------- Persistence ----------
-		function loadState() {
+		function loadTournamentState() {
 			try {
-				const raw = localStorage.getItem(STORAGE_KEY);
-				if (!raw) return;
-				const parsed = JSON.parse(raw);
+				const rawJson = localStorage.getItem(TOURNAMENT_STORAGE_KEY);
+				if (!rawJson) return;
+				const parsed = JSON.parse(rawJson);
 				if (parsed && Array.isArray(parsed.matches)) {
-					state = {
+					tournamentState = {
 						tournamentName: typeof parsed.tournamentName === 'string' ? parsed.tournamentName : '',
 						matches: parsed.matches.filter(isValidMatch),
 					};
@@ -371,100 +401,105 @@
 			}
 		}
 
-		function saveState() {
+		function saveTournamentState() {
 			try {
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+				localStorage.setItem(TOURNAMENT_STORAGE_KEY, JSON.stringify(tournamentState));
 			} catch (err) {
 				console.error('Falha ao salvar estado:', err);
 			}
 		}
 
-		function isValidMatch(m) {
-			return m
-				&& typeof m.team1 === 'string' && m.team1.trim() !== ''
-				&& typeof m.team2 === 'string' && m.team2.trim() !== ''
-				&& Number.isFinite(m.team1Score)
-				&& Number.isFinite(m.team2Score);
+		function isValidMatch(match) {
+			return match
+				&& typeof match.team1 === 'string' && match.team1.trim() !== ''
+				&& typeof match.team2 === 'string' && match.team2.trim() !== ''
+				&& Number.isFinite(match.team1Score)
+				&& Number.isFinite(match.team2Score);
 		}
 
 		// ---------- Mutations ----------
 		function addMatch(match) {
-			state.matches.push(match);
-			saveState();
+			tournamentState.matches.push(match);
+			saveTournamentState();
 			render();
 		}
 
-		function deleteMatch(index) {
-			state.matches.splice(index, 1);
-			saveState();
+		function deleteMatch(matchIndex) {
+			tournamentState.matches.splice(matchIndex, 1);
+			saveTournamentState();
 			render();
 		}
 
-		function newTournament() {
-			if (state.matches.length > 0 && !confirm('Isso vai apagar o torneio atual. Continuar?')) return;
-			state = { tournamentName: '', matches: [] };
-			saveState();
+		function startNewTournament() {
+			if (tournamentState.matches.length > 0 && !confirm('Isso vai apagar o torneio atual. Continuar?')) return;
+			tournamentState = { tournamentName: '', matches: [] };
+			saveTournamentState();
 			render();
 		}
 
 		function setTournamentName(name) {
-			state.tournamentName = name;
-			saveState();
+			tournamentState.tournamentName = name;
+			saveTournamentState();
 		}
 
-		// ---------- Classification (ported from TournamentService.java) ----------
-		function computeClassification(matches) {
-			const results = new Map();
-			const ensure = (name) => {
-				if (!results.has(name)) {
-					results.set(name, {
-						teamName: name,
-						victoryCounter: 0,
-						defeatCounter: 0,
-						drawCounter: 0,
-						pointsMade: 0,
-						pointsSuffered: 0,
+		// ---------- Standings computation ----------
+		// Ported from v1 backend TournamentService.calculateClassificationRank.
+		// Given a list of matches, aggregate wins/losses/draws and points per team,
+		// then sort: most wins first, then best point balance.
+		function computeStandings(matches) {
+			const standingsByTeam = new Map();
+
+			function getOrCreateStanding(teamName) {
+				if (!standingsByTeam.has(teamName)) {
+					standingsByTeam.set(teamName, {
+						teamName: teamName,
+						wins: 0,
+						losses: 0,
+						draws: 0,
+						pointsFor: 0,
+						pointsAgainst: 0,
 					});
 				}
-				return results.get(name);
-			};
+				return standingsByTeam.get(teamName);
+			}
 
-			for (const m of matches) {
-				const t1 = ensure(m.team1);
-				const t2 = ensure(m.team2);
-				t1.pointsMade += m.team1Score;
-				t1.pointsSuffered += m.team2Score;
-				t2.pointsMade += m.team2Score;
-				t2.pointsSuffered += m.team1Score;
+			for (const match of matches) {
+				const team1Standing = getOrCreateStanding(match.team1);
+				const team2Standing = getOrCreateStanding(match.team2);
 
-				if (m.team1Score > m.team2Score) {
-					t1.victoryCounter++;
-					t2.defeatCounter++;
-				} else if (m.team2Score > m.team1Score) {
-					t2.victoryCounter++;
-					t1.defeatCounter++;
+				team1Standing.pointsFor += match.team1Score;
+				team1Standing.pointsAgainst += match.team2Score;
+				team2Standing.pointsFor += match.team2Score;
+				team2Standing.pointsAgainst += match.team1Score;
+
+				if (match.team1Score > match.team2Score) {
+					team1Standing.wins++;
+					team2Standing.losses++;
+				} else if (match.team2Score > match.team1Score) {
+					team2Standing.wins++;
+					team1Standing.losses++;
 				} else {
-					t1.drawCounter++;
-					t2.drawCounter++;
+					team1Standing.draws++;
+					team2Standing.draws++;
 				}
 			}
 
-			const rows = Array.from(results.values()).map((r) => ({
-				...r,
-				pointsBalance: r.pointsMade - r.pointsSuffered,
+			const standings = Array.from(standingsByTeam.values()).map((standing) => ({
+				...standing,
+				pointBalance: standing.pointsFor - standing.pointsAgainst,
 			}));
 
-			// Sort: victories desc, then points balance desc (matches v1 backend)
-			rows.sort((a, b) => {
-				if (b.victoryCounter !== a.victoryCounter) return b.victoryCounter - a.victoryCounter;
-				return b.pointsBalance - a.pointsBalance;
+			// Sort: most wins first, tiebreaker is best point balance.
+			standings.sort((a, b) => {
+				if (b.wins !== a.wins) return b.wins - a.wins;
+				return b.pointBalance - a.pointBalance;
 			});
 
-			return rows;
+			return standings;
 		}
 
 		// ---------- Rendering ----------
-		const els = {
+		const domRefs = {
 			tournamentName: document.getElementById('tournamentName'),
 			matchesBody: document.getElementById('matchesBody'),
 			matchesEmpty: document.getElementById('matchesEmpty'),
@@ -475,118 +510,130 @@
 		};
 
 		function render() {
-			if (document.activeElement !== els.tournamentName) {
-				els.tournamentName.value = state.tournamentName;
+			// Don't overwrite the tournament name input while the user is typing in it.
+			if (document.activeElement !== domRefs.tournamentName) {
+				domRefs.tournamentName.value = tournamentState.tournamentName;
 			}
 
-			// Matches table
-			els.matchesBody.innerHTML = '';
-			if (state.matches.length === 0) {
-				els.matchesTable.classList.add('hidden');
-				els.matchesEmpty.classList.remove('hidden');
-			} else {
-				els.matchesTable.classList.remove('hidden');
-				els.matchesEmpty.classList.add('hidden');
-				state.matches.forEach((m, i) => {
-					const t1Win = m.team1Score > m.team2Score;
-					const t2Win = m.team2Score > m.team1Score;
-					const draw = !t1Win && !t2Win;
-					const t1Cls = draw ? 'draw' : (t1Win ? 'team winner' : 'team loser');
-					const t2Cls = draw ? 'draw' : (t2Win ? 'team winner' : 'team loser');
-					const t1Trophy = t1Win ? '<span class="trophy">🏆</span>' : '';
-					const t2Trophy = t2Win ? '<span class="trophy">🏆</span>' : '';
-					const s1Cls = draw ? '' : (t1Win ? 'w' : 'l');
-					const s2Cls = draw ? '' : (t2Win ? 'w' : 'l');
-					const sep = draw ? '=' : '×';
-					const tr = document.createElement('tr');
-					tr.innerHTML = `
-						<td class="${t1Cls}">${t1Trophy}${escapeHtml(m.team1)}</td>
-						<td class="match-score">
-							<span class="${s1Cls}">${m.team1Score}</span><span class="sep">${sep}</span><span class="${s2Cls}">${m.team2Score}</span>
-						</td>
-						<td class="${t2Cls}">${escapeHtml(m.team2)}${t2Win ? ' <span class="trophy">🏆</span>' : ''}</td>
-						<td><button class="delete-btn" data-index="${i}">Excluir</button></td>
-					`;
-					els.matchesBody.appendChild(tr);
-				});
-			}
-
-			// Classification table
-			const rows = computeClassification(state.matches);
-			els.classificationBody.innerHTML = '';
-			if (rows.length === 0) {
-				els.classificationTable.classList.add('hidden');
-				els.classificationEmpty.classList.remove('hidden');
-			} else {
-				els.classificationTable.classList.remove('hidden');
-				els.classificationEmpty.classList.add('hidden');
-				rows.forEach((r, i) => {
-					const tr = document.createElement('tr');
-					tr.innerHTML = `
-						<td class="pos">${i + 1}º</td>
-						<td class="team">${escapeHtml(r.teamName)}</td>
-						<td>${r.victoryCounter}</td>
-						<td>${r.defeatCounter}</td>
-						<td>${r.drawCounter}</td>
-						<td>${r.pointsMade}</td>
-						<td>${r.pointsSuffered}</td>
-						<td>${r.pointsBalance}</td>
-					`;
-					els.classificationBody.appendChild(tr);
-				});
-			}
+			renderMatchesTable();
+			renderStandingsTable();
 		}
 
-		function escapeHtml(s) {
-			return String(s).replace(/[&<>"']/g, (c) => ({
+		function renderMatchesTable() {
+			domRefs.matchesBody.innerHTML = '';
+			if (tournamentState.matches.length === 0) {
+				domRefs.matchesTable.classList.add('hidden');
+				domRefs.matchesEmpty.classList.remove('hidden');
+				return;
+			}
+			domRefs.matchesTable.classList.remove('hidden');
+			domRefs.matchesEmpty.classList.add('hidden');
+
+			tournamentState.matches.forEach((match, matchIndex) => {
+				const team1Won = match.team1Score > match.team2Score;
+				const team2Won = match.team2Score > match.team1Score;
+				const isDraw = !team1Won && !team2Won;
+
+				const team1CellClass = isDraw ? 'draw' : (team1Won ? 'team winner' : 'team loser');
+				const team2CellClass = isDraw ? 'draw' : (team2Won ? 'team winner' : 'team loser');
+				const team1ScoreClass = isDraw ? '' : (team1Won ? 'winning-score' : 'losing-score');
+				const team2ScoreClass = isDraw ? '' : (team2Won ? 'winning-score' : 'losing-score');
+				const scoreSeparator = isDraw ? '=' : '×';
+				const trophyIcon = '<span class="trophy">🏆</span>';
+
+				const rowEl = document.createElement('tr');
+				rowEl.innerHTML = `
+					<td class="${team1CellClass}">${team1Won ? trophyIcon : ''}${escapeHtml(match.team1)}</td>
+					<td class="match-score">
+						<span class="${team1ScoreClass}">${match.team1Score}</span><span class="sep">${scoreSeparator}</span><span class="${team2ScoreClass}">${match.team2Score}</span>
+					</td>
+					<td class="${team2CellClass}">${escapeHtml(match.team2)}${team2Won ? ' ' + trophyIcon : ''}</td>
+					<td><button class="delete-btn" data-index="${matchIndex}">Excluir</button></td>
+				`;
+				domRefs.matchesBody.appendChild(rowEl);
+			});
+		}
+
+		function renderStandingsTable() {
+			const standings = computeStandings(tournamentState.matches);
+			domRefs.classificationBody.innerHTML = '';
+			if (standings.length === 0) {
+				domRefs.classificationTable.classList.add('hidden');
+				domRefs.classificationEmpty.classList.remove('hidden');
+				return;
+			}
+			domRefs.classificationTable.classList.remove('hidden');
+			domRefs.classificationEmpty.classList.add('hidden');
+
+			standings.forEach((standing, standingIndex) => {
+				const position = standingIndex + 1;
+				const rowEl = document.createElement('tr');
+				rowEl.innerHTML = `
+					<td class="pos">${position}º</td>
+					<td class="team">${escapeHtml(standing.teamName)}</td>
+					<td>${standing.wins}</td>
+					<td>${standing.losses}</td>
+					<td>${standing.draws}</td>
+					<td>${standing.pointsFor}</td>
+					<td>${standing.pointsAgainst}</td>
+					<td>${standing.pointBalance}</td>
+				`;
+				domRefs.classificationBody.appendChild(rowEl);
+			});
+		}
+
+		function escapeHtml(unsafeString) {
+			return String(unsafeString).replace(/[&<>"']/g, (char) => ({
 				'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-			}[c]));
+			}[char]));
 		}
 
-		// ---------- Export / Import ----------
-		function exportJson() {
-			const data = JSON.stringify(state, null, 2);
-			const blob = new Blob([data], { type: 'application/json' });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			const safeName = (state.tournamentName || 'torneio').replace(/[^a-z0-9-_]+/gi, '_');
-			const date = new Date().toISOString().slice(0, 10);
-			a.href = url;
-			a.download = `${safeName}-${date}.json`;
-			a.click();
-			URL.revokeObjectURL(url);
+		// ---------- Backup (Export / Import) ----------
+		function exportBackup() {
+			const jsonData = JSON.stringify(tournamentState, null, 2);
+			const blob = new Blob([jsonData], { type: 'application/json' });
+			const downloadUrl = URL.createObjectURL(blob);
+			const downloadLink = document.createElement('a');
+			const safeFileName = (tournamentState.tournamentName || 'torneio').replace(/[^a-z0-9-_]+/gi, '_');
+			const todayIsoDate = new Date().toISOString().slice(0, 10);
+			downloadLink.href = downloadUrl;
+			downloadLink.download = `${safeFileName}-${todayIsoDate}.json`;
+			downloadLink.click();
+			URL.revokeObjectURL(downloadUrl);
 		}
 
-		function importJson(file) {
-			const reader = new FileReader();
-			reader.onload = () => {
+		function importBackup(backupFile) {
+			const fileReader = new FileReader();
+			fileReader.onload = () => {
 				try {
-					const parsed = JSON.parse(String(reader.result));
+					const parsed = JSON.parse(String(fileReader.result));
 					if (!parsed || !Array.isArray(parsed.matches)) throw new Error('Formato inválido');
-					const matches = parsed.matches.filter(isValidMatch);
-					state = {
+					const validMatches = parsed.matches.filter(isValidMatch);
+					tournamentState = {
 						tournamentName: typeof parsed.tournamentName === 'string' ? parsed.tournamentName : '',
-						matches,
+						matches: validMatches,
 					};
-					saveState();
+					saveTournamentState();
 					render();
 				} catch (err) {
 					alert('Arquivo inválido: ' + err.message);
 				}
 			};
-			reader.readAsText(file);
+			fileReader.readAsText(backupFile);
 		}
 
 		// ---------- Event wiring ----------
-		document.getElementById('matchForm').addEventListener('submit', (e) => {
-			e.preventDefault();
-			const t1 = document.getElementById('t1name').value.trim();
-			const t2 = document.getElementById('t2name').value.trim();
-			const s1 = Number(document.getElementById('t1score').value);
-			const s2 = Number(document.getElementById('t2score').value);
-			if (!t1 || !t2) return;
-			if (!Number.isFinite(s1) || !Number.isFinite(s2)) return;
-			addMatch({ team1: t1, team1Score: s1, team2: t2, team2Score: s2 });
+		document.getElementById('matchForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const team1Name = document.getElementById('t1name').value.trim();
+			const team2Name = document.getElementById('t2name').value.trim();
+			const team1Score = Number(document.getElementById('t1score').value);
+			const team2Score = Number(document.getElementById('t2score').value);
+			if (!team1Name || !team2Name) return;
+			if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) return;
+
+			addMatch({ team1: team1Name, team1Score, team2: team2Name, team2Score });
+
 			document.getElementById('t1name').value = '';
 			document.getElementById('t2name').value = '';
 			document.getElementById('t1score').value = '0';
@@ -594,21 +641,21 @@
 			document.getElementById('t1name').focus();
 		});
 
-		els.matchesBody.addEventListener('click', (e) => {
-			const btn = e.target.closest('.delete-btn');
-			if (!btn) return;
-			deleteMatch(Number(btn.dataset.index));
+		domRefs.matchesBody.addEventListener('click', (event) => {
+			const deleteButton = event.target.closest('.delete-btn');
+			if (!deleteButton) return;
+			deleteMatch(Number(deleteButton.dataset.index));
 		});
 
-		els.tournamentName.addEventListener('input', (e) => setTournamentName(e.target.value));
+		domRefs.tournamentName.addEventListener('input', (event) => setTournamentName(event.target.value));
 
-		document.getElementById('btnNew').addEventListener('click', newTournament);
-		document.getElementById('btnExport').addEventListener('click', exportJson);
+		document.getElementById('btnNew').addEventListener('click', startNewTournament);
+		document.getElementById('btnExport').addEventListener('click', exportBackup);
 		document.getElementById('btnImport').addEventListener('click', () => document.getElementById('importFile').click());
-		document.getElementById('importFile').addEventListener('change', (e) => {
-			const file = e.target.files && e.target.files[0];
-			if (file) importJson(file);
-			e.target.value = '';
+		document.getElementById('importFile').addEventListener('change', (event) => {
+			const selectedFile = event.target.files && event.target.files[0];
+			if (selectedFile) importBackup(selectedFile);
+			event.target.value = '';
 		});
 
 		document.getElementById('btnFullscreen').addEventListener('click', async () => {
@@ -619,24 +666,25 @@
 				} else {
 					await document.documentElement.requestFullscreen();
 				}
-			} catch (_) { /* ignore */ }
+			} catch (_) { /* ignore: user may have denied fullscreen permission */ }
 		});
 
 		document.addEventListener('fullscreenchange', () => {
+			// If the user exits fullscreen with F11 or Esc, also drop the big-screen styling.
 			if (!document.fullscreenElement) document.body.classList.remove('big-screen');
 		});
 
-		document.addEventListener('keydown', (e) => {
-			if (e.key === 'Escape' && document.body.classList.contains('big-screen')) {
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && document.body.classList.contains('big-screen')) {
 				document.body.classList.remove('big-screen');
 			}
 		});
 
-		document.getElementById('themeSelect').addEventListener('change', (e) => applyTheme(e.target.value));
+		document.getElementById('themeSelect').addEventListener('change', (event) => applyTheme(event.target.value));
 
 		// ---------- Init ----------
 		loadTheme();
-		loadState();
+		loadTournamentState();
 		render();
 	</script>
 </body>

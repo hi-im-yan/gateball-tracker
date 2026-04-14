@@ -64,6 +64,12 @@ jobs:
           echo "::group::commits.json contents"
           cat commits.json
           echo "::endgroup::"
+          echo "::group::head_commit (top-level)"
+          jq '.head_commit' "$GITHUB_EVENT_PATH"
+          echo "::endgroup::"
+          echo "::group::top-level keys"
+          jq 'keys' "$GITHUB_EVENT_PATH"
+          echo "::endgroup::"
 
           jq -r \
             --arg head_sha "$HEAD_SHA" \

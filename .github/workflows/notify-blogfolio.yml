@@ -65,10 +65,10 @@ jobs:
             --arg head_sha "$HEAD_SHA" \
             --arg pr_title "$PR_TITLE" \
             '
-              def is_ignored(path):
-                (path | test("^(pom\\.xml|package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|go\\.sum|Cargo\\.lock|\\.gitignore|\\.editorconfig|\\.dockerignore)$"))
-                or (path | test("\\.properties$"))
-                or (path | test("^\\.github/"));
+              def is_ignored:
+                test("^(pom\\.xml|package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|go\\.sum|Cargo\\.lock|\\.gitignore|\\.editorconfig|\\.dockerignore)$")
+                or test("\\.properties$")
+                or test("^\\.github/");
               map(select(
                 ((.added // []) + (.modified // []) + (.removed // [])) as $files
                 | ($files | length > 0)

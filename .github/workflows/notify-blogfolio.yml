@@ -61,6 +61,9 @@ jobs:
           PR_TITLE: ${{ steps.pr.outputs.pr_title }}
         run: |
           jq '.commits' "$GITHUB_EVENT_PATH" > commits.json
+          echo "::group::commits.json contents"
+          cat commits.json
+          echo "::endgroup::"
 
           jq -r \
             --arg head_sha "$HEAD_SHA" \

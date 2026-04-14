@@ -21,9 +21,10 @@ jobs:
       BLOGFOLIO_REPO: hi-im-yan/blogfolio
       REPO_NAME: ${{ vars.REPO_NAME }}
       REPO_DESCRIPTION: ${{ vars.REPO_DESCRIPTION }}
-      COMMITS_JSON: ${{ toJson(github.event.commits) }}
       HEAD_SHA: ${{ github.event.head_commit.id }}
       HEAD_MSG: ${{ github.event.head_commit.message }}
+      # Note: we read $GITHUB_EVENT_PATH directly (not toJson(github.event.commits))
+      # because the Actions expression context strips added/modified/removed from commits.
     steps:
       - name: Guard required configuration
         run: |
@@ -59,7 +60,7 @@ jobs:
         env:
           PR_TITLE: ${{ steps.pr.outputs.pr_title }}
         run: |
-          printf '%s' "$COMMITS_JSON" > commits.json
+          jq '.commits' "$GITHUB_EVENT_PATH" > commits.json
 
           jq -r \
             --arg head_sha "$HEAD_SHA" \

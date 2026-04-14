@@ -1,0 +1,23 @@
+{
+  "tournamentName": "gateball da firma",
+  "matches": [
+    {
+      "team1": "CG",
+      "team1Score": 5,
+      "team2": "Cuiaba",
+      "team2Score": 3
+    },
+    {
+      "team1": "CG",
+      "team1Score": 10,
+      "team2": "SE",
+      "team2Score": 5
+    },
+    {
+      "team1": "Cuiaba",
+      "team1Score": 5,
+      "team2": "SE",
+      "team2Score": 10
+    }
+  ]
+}

@@ -1,10 +1,10 @@
 # Drop this file into a tracked repo at .github/workflows/notify-blogfolio.yml
 # Prereqs in the tracked repo:
-#   Secret:    BLOGFOLIO_ISSUE_TOKEN  (PAT with Issues:write on hi-im-yan/blogfolio)
+#   Secret:    BLOGFOLIO_ISSUE_TOKEN  (PAT with Issues:write on hi-im-yan/personal-blog)
 #   Variables: REPO_NAME              (short slug)
 #              REPO_DESCRIPTION       (one-liner describing the repo)
 # On every push to main, this opens (or appends to) a `gh-update` issue on
-# hi-im-yan/blogfolio with filtered commits + PR title. Noise commits
+# hi-im-yan/personal-blog with filtered commits + PR title. Noise commits
 # (lockfiles, pom, *.properties, CI-only, dotfiles) are dropped.
 
 name: Notify Blogfolio
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.BLOGFOLIO_ISSUE_TOKEN }}
-      BLOGFOLIO_REPO: hi-im-yan/blogfolio
+      BLOGFOLIO_REPO: hi-im-yan/personal-blog
       REPO_NAME: ${{ vars.REPO_NAME }}
       REPO_DESCRIPTION: ${{ vars.REPO_DESCRIPTION }}
       HEAD_SHA: ${{ github.event.head_commit.id }}

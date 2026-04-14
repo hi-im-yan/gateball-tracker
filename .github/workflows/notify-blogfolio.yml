@@ -23,8 +23,6 @@ jobs:
       REPO_DESCRIPTION: ${{ vars.REPO_DESCRIPTION }}
       HEAD_SHA: ${{ github.event.head_commit.id }}
       HEAD_MSG: ${{ github.event.head_commit.message }}
-      # Note: we read $GITHUB_EVENT_PATH directly (not toJson(github.event.commits))
-      # because the Actions expression context strips added/modified/removed from commits.
     steps:
       - name: Guard required configuration
         run: |
@@ -36,6 +34,11 @@ jobs:
             echo "::error::BLOGFOLIO_ISSUE_TOKEN secret is missing."
             exit 1
           fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect PR title
         id: pr
@@ -60,16 +63,20 @@ jobs:
         env:
           PR_TITLE: ${{ steps.pr.outputs.pr_title }}
         run: |
-          jq '.commits' "$GITHUB_EVENT_PATH" > commits.json
-          echo "::group::commits.json contents"
-          cat commits.json
-          echo "::endgroup::"
-          echo "::group::head_commit (top-level)"
-          jq '.head_commit' "$GITHUB_EVENT_PATH"
-          echo "::endgroup::"
-          echo "::group::top-level keys"
-          jq 'keys' "$GITHUB_EVENT_PATH"
-          echo "::endgroup::"
+          # GitHub's push-event payload doesn't include per-commit file lists,
+          # so we enrich each commit with its touched paths via `git show`.
+          jq '.commits' "$GITHUB_EVENT_PATH" > commits_raw.json
+
+          : > enriched.jsonl
+          while IFS= read -r commit; do
+            sha=$(printf '%s' "$commit" | jq -r '.id')
+            files_json=$(git show --pretty=format: --name-only "$sha" 2>/dev/null \
+              | sed '/^$/d' | jq -R . | jq -s .)
+            printf '%s' "$commit" \
+              | jq -c --argjson f "$files_json" '. + {files: $f}' \
+              >> enriched.jsonl
+          done < <(jq -c '.[]' commits_raw.json)
+          jq -s . enriched.jsonl > commits.json
 
           jq -r \
             --arg head_sha "$HEAD_SHA" \
@@ -80,7 +87,7 @@ jobs:
                 or test("\\.properties$")
                 or test("^\\.github/");
               map(select(
-                ((.added // []) + (.modified // []) + (.removed // [])) as $files
+                (.files // []) as $files
                 | ($files | length > 0)
                 and ($files | all(is_ignored) | not)
               ))
